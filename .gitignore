@@ -1,1 +1,22 @@
+# Secrets and local configuration
 .env
+.env.*
+!.env.example
+
+# Operating-system and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python validation artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Generated reports and local data
+build/
+dist/
+reports/
+*.log

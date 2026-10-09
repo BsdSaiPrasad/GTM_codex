@@ -1,0 +1,230 @@
+erDiagram
+    ACCOUNT {
+        string account_id PK
+        string account_type
+        string lifecycle_status
+        datetime customer_since_at
+        datetime ended_customer_at
+    }
+    PERSON {
+        string person_id PK
+        string display_name
+        string primary_email_normalized
+        string identity_status
+    }
+    SOURCE_RECORD {
+        string source_record_id PK
+        string source_system
+        string source_tenant
+        string source_object_type
+        string source_object_id
+        datetime ingested_at
+    }
+    EXTERNAL_IDENTITY_CROSSWALK {
+        string external_identity_crosswalk_id PK
+        string source_record_id FK
+        string canonical_entity_type
+        string canonical_entity_id
+        string mapping_status
+        datetime valid_from
+        datetime valid_to
+    }
+    ACCOUNT_PERSON_RELATIONSHIP {
+        string account_person_relationship_id PK
+        string account_id FK
+        string person_id FK
+        string relationship_type
+        datetime valid_from
+        datetime valid_to
+    }
+    ACCOUNT_HIERARCHY_RELATIONSHIP {
+        string account_hierarchy_relationship_id PK
+        string parent_account_id FK
+        string child_account_id FK
+        string relationship_type
+        datetime valid_from
+        datetime valid_to
+    }
+    ACCOUNT_NAME_HISTORY {
+        string account_name_history_id PK
+        string account_id FK
+        string name
+        string name_type
+        boolean is_preferred
+        datetime valid_from
+        datetime valid_to
+    }
+    ACCOUNT_DOMAIN_HISTORY {
+        string account_domain_history_id PK
+        string account_id FK
+        string domain_normalized
+        string domain_type
+        boolean is_primary
+        datetime valid_from
+        datetime valid_to
+    }
+    OPPORTUNITY {
+        string opportunity_id PK
+        string primary_account_id FK
+        string stage
+        decimal amount
+        date expected_close_date
+    }
+    OPPORTUNITY_PERSON_ROLE {
+        string opportunity_person_role_id PK
+        string opportunity_id FK
+        string person_id FK
+        string role_type
+        datetime valid_from
+        datetime valid_to
+    }
+    CAMPAIGN {
+        string campaign_id PK
+        string name
+        string campaign_type
+        string status
+    }
+    ACTIVITY {
+        string activity_id PK
+        string person_id FK
+        string account_id FK
+        string opportunity_id FK
+        string campaign_id FK
+        string source_record_id FK
+        datetime occurred_at
+        string resolution_status
+    }
+    QUOTE {
+        string quote_id PK
+        string opportunity_id FK
+        string account_id FK
+        int version_number
+        string status
+        decimal total_amount
+    }
+    CONTRACT {
+        string contract_id PK
+        string account_id FK
+        string opportunity_id FK
+        string status
+        date starts_on
+        date ends_on
+    }
+    ORDER {
+        string order_id PK
+        string account_id FK
+        string contract_id FK
+        string quote_id FK
+        string status
+        datetime ordered_at
+    }
+    SUBSCRIPTION {
+        string subscription_id PK
+        string account_id FK
+        string contract_id FK
+        string order_id FK
+        string product_code
+        string status
+        datetime starts_at
+        datetime ends_at
+    }
+    INVOICE {
+        string invoice_id PK
+        string account_id FK
+        string subscription_id FK
+        string status
+        date issued_on
+        decimal amount_due
+    }
+    PRODUCT_USER {
+        string product_user_id PK
+        string person_id FK
+        string account_id FK
+        string source_record_id FK
+        string tenant_key
+        string resolution_status
+    }
+    SUPPORT_CASE {
+        string support_case_id PK
+        string account_id FK
+        string person_id FK
+        string subscription_id FK
+        string status
+        string priority
+        datetime opened_at
+    }
+    SIGNAL {
+        string signal_id PK
+        string subject_entity_type
+        string subject_entity_id
+        string signal_type
+        datetime observed_at
+        decimal confidence
+    }
+    ENRICHMENT_SNAPSHOT {
+        string enrichment_snapshot_id PK
+        string subject_entity_type
+        string subject_entity_id
+        string provider
+        datetime observed_at
+        string schema_version
+    }
+    WORKFLOW_RUN {
+        string workflow_run_id PK
+        string retry_of_workflow_run_id FK
+        string workflow_name
+        string workflow_version
+        string idempotency_key
+        string status
+    }
+    DECISION {
+        string decision_id PK
+        string workflow_run_id FK
+        string subject_entity_type
+        string subject_entity_id
+        string outcome
+        string policy_version
+        datetime decided_at
+    }
+
+    ACCOUNT ||--|{ ACCOUNT_NAME_HISTORY : "has names"
+    ACCOUNT ||--o{ ACCOUNT_DOMAIN_HISTORY : "has domains"
+    ACCOUNT ||--o{ ACCOUNT_HIERARCHY_RELATIONSHIP : "is parent"
+    ACCOUNT ||--o{ ACCOUNT_HIERARCHY_RELATIONSHIP : "is child"
+    ACCOUNT ||--o{ ACCOUNT_PERSON_RELATIONSHIP : "has affiliations"
+    PERSON ||--o{ ACCOUNT_PERSON_RELATIONSHIP : "holds affiliations"
+    ACCOUNT ||--o{ OPPORTUNITY : "primary buyer for"
+    OPPORTUNITY ||--o{ OPPORTUNITY_PERSON_ROLE : "has participants"
+    PERSON ||--o{ OPPORTUNITY_PERSON_ROLE : "participates through"
+    CAMPAIGN o|--o{ ACTIVITY : "groups"
+    PERSON o|--o{ ACTIVITY : "participates in"
+    ACCOUNT o|--o{ ACTIVITY : "context for"
+    OPPORTUNITY o|--o{ ACTIVITY : "context for"
+    SOURCE_RECORD o|--o{ ACTIVITY : "provenance for"
+    OPPORTUNITY ||--o{ QUOTE : "has proposals"
+    ACCOUNT ||--o{ QUOTE : "receives"
+    ACCOUNT ||--o{ CONTRACT : "signs"
+    OPPORTUNITY o|--o{ CONTRACT : "results in"
+    QUOTE o|--o{ ORDER : "accepted as"
+    CONTRACT o|--o{ ORDER : "authorizes"
+    ACCOUNT ||--o{ ORDER : "places"
+    CONTRACT o|--o{ SUBSCRIPTION : "governs"
+    ORDER o|--o{ SUBSCRIPTION : "provisions"
+    ACCOUNT ||--o{ SUBSCRIPTION : "holds"
+    SUBSCRIPTION o|--o{ INVOICE : "billed by"
+    ACCOUNT ||--o{ INVOICE : "billed to"
+    PERSON o|--o{ PRODUCT_USER : "resolves to"
+    ACCOUNT o|--o{ PRODUCT_USER : "uses within"
+    SOURCE_RECORD ||--o| PRODUCT_USER : "represents"
+    ACCOUNT ||--o{ SUPPORT_CASE : "opens"
+    PERSON o|--o{ SUPPORT_CASE : "reports"
+    SUBSCRIPTION o|--o{ SUPPORT_CASE : "concerns"
+    WORKFLOW_RUN o|--o{ DECISION : "produces"
+    SOURCE_RECORD ||--o{ EXTERNAL_IDENTITY_CROSSWALK : "maps over time"
+    WORKFLOW_RUN o|--o{ WORKFLOW_RUN : "retries"
+
+%% Polymorphic logical references, documented rather than drawn as physical FKs:
+%% EXTERNAL_IDENTITY_CROSSWALK.canonical_entity_type/id -> supported canonical entity
+%% SIGNAL.subject_entity_type/id -> Account, Person, Opportunity, Contract, Subscription, SupportCase
+%% ENRICHMENT_SNAPSHOT.subject_entity_type/id -> Account or Person
+%% DECISION.subject_entity_type/id -> supported auditable business subject

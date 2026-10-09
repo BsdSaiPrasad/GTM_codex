@@ -1,0 +1,290 @@
+{
+  "contract_name": "sai-revenueos-canonical-model",
+  "contract_version": "1.0.0",
+  "contract_kind": "logical-architecture-catalog",
+  "owner": "P1 Data Foundation & Customer Identity",
+  "status": "approved-for-p1.1",
+  "entities": {
+    "Account": {
+      "definition": "A durable canonical identity for a legal entity, operating company, business unit, or other selling-relevant organization.",
+      "purpose": "Unifies company representations while keeping parents and subsidiaries distinct.",
+      "primary_key": "account_id",
+      "important_attributes": ["account_id", "account_type", "lifecycle_status", "customer_since_at", "ended_customer_at", "created_at", "updated_at"],
+      "foreign_keys": [],
+      "history": "Identity is durable; mutable names, domains, hierarchy, and selected lifecycle facts are effective-dated in related structures.",
+      "source_relationship": "Mapped from zero or more SourceRecords through ExternalIdentityCrosswalk.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6", "P7"]
+    },
+    "Person": {
+      "definition": "One durable canonical identity for a human across sources, lifecycle stages, and employers.",
+      "purpose": "Prevents Lead, Contact, and product-user representations from duplicating a human identity.",
+      "primary_key": "person_id",
+      "important_attributes": ["person_id", "display_name", "primary_email_normalized", "identity_status", "created_at", "updated_at"],
+      "foreign_keys": [],
+      "history": "Identity persists; employer history is held in AccountPersonRelationship and source representations in the crosswalk.",
+      "source_relationship": "Lead, Contact, marketing, support, and product records map through the crosswalk; unresolved records remain source-only.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6", "P7"]
+    },
+    "AccountPersonRelationship": {
+      "definition": "An effective-dated affiliation between a Person and an Account, such as employment, advisory, or executive sponsorship.",
+      "purpose": "Preserves employer and role history without changing Person identity.",
+      "primary_key": "account_person_relationship_id",
+      "important_attributes": ["account_person_relationship_id", "account_id", "person_id", "relationship_type", "job_title", "department", "is_primary", "valid_from", "valid_to"],
+      "foreign_keys": ["account_id -> Account.account_id", "person_id -> Person.person_id"],
+      "history": "Effective-dated; non-overlap is expected for the same person/account/type when marked primary.",
+      "source_relationship": "Derived from source employment or account-contact associations with provenance retained.",
+      "consumers": ["P2", "P3", "P4", "P6"]
+    },
+    "Opportunity": {
+      "definition": "A canonical potential commercial transaction with exactly one primary buying Account.",
+      "purpose": "Provides the shared revenue-pipeline identity independent of CRM object IDs.",
+      "primary_key": "opportunity_id",
+      "important_attributes": ["opportunity_id", "primary_account_id", "name", "stage", "amount", "currency_code", "expected_close_date", "opened_at", "closed_at"],
+      "foreign_keys": ["primary_account_id -> Account.account_id"],
+      "history": "Canonical identity is stable; stage and amount history are deferred to a later analytical design.",
+      "source_relationship": "CRM opportunities map through ExternalIdentityCrosswalk.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6"]
+    },
+    "OpportunityPersonRole": {
+      "definition": "A Person's role and participation in a specific Opportunity.",
+      "purpose": "Models multi-person buying committees without embedding participant columns on Opportunity.",
+      "primary_key": "opportunity_person_role_id",
+      "important_attributes": ["opportunity_person_role_id", "opportunity_id", "person_id", "role_type", "influence_level", "is_primary_contact", "valid_from", "valid_to"],
+      "foreign_keys": ["opportunity_id -> Opportunity.opportunity_id", "person_id -> Person.person_id"],
+      "history": "Effective-dated so changing buying roles remain auditable.",
+      "source_relationship": "CRM opportunity-contact roles and inferred roles retain provenance.",
+      "consumers": ["P3", "P4", "P5", "P6"]
+    },
+    "Activity": {
+      "definition": "A business interaction or event such as an email, meeting, call, form submission, or product-related touch.",
+      "purpose": "Provides a common interaction envelope while Campaign and ProductUser stay distinct concepts.",
+      "primary_key": "activity_id",
+      "important_attributes": ["activity_id", "activity_type", "occurred_at", "person_id", "account_id", "opportunity_id", "campaign_id", "source_record_id", "resolution_status"],
+      "foreign_keys": ["person_id -> Person.person_id", "account_id -> Account.account_id", "opportunity_id -> Opportunity.opportunity_id", "campaign_id -> Campaign.campaign_id", "source_record_id -> SourceRecord.source_record_id"],
+      "history": "Append-oriented; corrections create auditable revisions rather than erasing the original event.",
+      "source_relationship": "May remain unresolved with only source_record_id and resolution_status populated.",
+      "consumers": ["P2", "P3", "P4", "P6", "P7"]
+    },
+    "Campaign": {
+      "definition": "A canonical marketing or coordinated outreach initiative.",
+      "purpose": "Groups attributable interactions and spend without treating campaigns as activities.",
+      "primary_key": "campaign_id",
+      "important_attributes": ["campaign_id", "name", "campaign_type", "status", "starts_at", "ends_at", "owner_team"],
+      "foreign_keys": [],
+      "history": "Identity is stable; material status changes remain available through source history or future snapshots.",
+      "source_relationship": "Source campaigns map through ExternalIdentityCrosswalk.",
+      "consumers": ["P2", "P3", "P4"]
+    },
+    "Quote": {
+      "definition": "A priced commercial proposal issued for an Opportunity and buying Account.",
+      "purpose": "Separates offer versions from Opportunities and resulting Contracts or Orders.",
+      "primary_key": "quote_id",
+      "important_attributes": ["quote_id", "opportunity_id", "account_id", "quote_number", "version_number", "status", "total_amount", "currency_code", "valid_until"],
+      "foreign_keys": ["opportunity_id -> Opportunity.opportunity_id", "account_id -> Account.account_id"],
+      "history": "Each commercial revision is independently versioned; accepted facts are not overwritten.",
+      "source_relationship": "CPQ and CRM quote objects map through ExternalIdentityCrosswalk.",
+      "consumers": ["P4", "P5"]
+    },
+    "Contract": {
+      "definition": "A legally binding commercial agreement with an Account.",
+      "purpose": "Retains agreement identity, term, and status independently from Account customer status and subscriptions.",
+      "primary_key": "contract_id",
+      "important_attributes": ["contract_id", "account_id", "opportunity_id", "contract_number", "status", "signed_at", "starts_on", "ends_on", "currency_code", "contract_value"],
+      "foreign_keys": ["account_id -> Account.account_id", "opportunity_id -> Opportunity.opportunity_id"],
+      "history": "Amendments and renewals link to independent Contract identities; executed terms are immutable except audited correction.",
+      "source_relationship": "CLM, CRM, or billing contracts map through ExternalIdentityCrosswalk.",
+      "consumers": ["P4", "P5", "P6"]
+    },
+    "Order": {
+      "definition": "An accepted request to provision or fulfill purchased products or services.",
+      "purpose": "Bridges signed commercial intent to fulfillment and billing.",
+      "primary_key": "order_id",
+      "important_attributes": ["order_id", "account_id", "contract_id", "quote_id", "order_number", "status", "ordered_at", "total_amount", "currency_code"],
+      "foreign_keys": ["account_id -> Account.account_id", "contract_id -> Contract.contract_id", "quote_id -> Quote.quote_id"],
+      "history": "Order status transitions are audit events; the accepted order identity remains stable.",
+      "source_relationship": "ERP, CPQ, and billing order objects map through ExternalIdentityCrosswalk.",
+      "consumers": ["P5", "P6"]
+    },
+    "Subscription": {
+      "definition": "A time-bounded entitlement to a recurring product or service for an Account.",
+      "purpose": "Tracks recurring service independently from its Contract and the Account's lifecycle label.",
+      "primary_key": "subscription_id",
+      "important_attributes": ["subscription_id", "account_id", "contract_id", "order_id", "product_code", "status", "starts_at", "ends_at", "quantity", "billing_frequency"],
+      "foreign_keys": ["account_id -> Account.account_id", "contract_id -> Contract.contract_id", "order_id -> Order.order_id"],
+      "history": "Terms and status changes are effective-dated or represented as amendments in the future physical model.",
+      "source_relationship": "Billing and entitlement subscriptions map through ExternalIdentityCrosswalk.",
+      "consumers": ["P4", "P5", "P6"]
+    },
+    "Invoice": {
+      "definition": "A billing demand issued to an Account for an Order, Contract, or Subscription obligation.",
+      "purpose": "Provides independent receivable identity and payment-state context.",
+      "primary_key": "invoice_id",
+      "important_attributes": ["invoice_id", "account_id", "subscription_id", "invoice_number", "status", "issued_on", "due_on", "amount_due", "amount_paid", "currency_code"],
+      "foreign_keys": ["account_id -> Account.account_id", "subscription_id -> Subscription.subscription_id"],
+      "history": "Issued invoices are append-oriented; voids, credits, and corrections remain auditable.",
+      "source_relationship": "Billing and ERP invoices map through ExternalIdentityCrosswalk.",
+      "consumers": ["P4", "P5", "P6"]
+    },
+    "ProductUser": {
+      "definition": "A product-system user profile linked when resolvable to one canonical Person and relevant Account context.",
+      "purpose": "Keeps application tenancy and usage identity distinct from the human's canonical identity.",
+      "primary_key": "product_user_id",
+      "important_attributes": ["product_user_id", "person_id", "account_id", "source_record_id", "tenant_key", "user_status", "first_seen_at", "last_seen_at", "resolution_status"],
+      "foreign_keys": ["person_id -> Person.person_id", "account_id -> Account.account_id", "source_record_id -> SourceRecord.source_record_id"],
+      "history": "Source profile state changes are retained by source snapshots; canonical links are auditable through the crosswalk.",
+      "source_relationship": "Represents a product source profile and may remain unresolved.",
+      "consumers": ["P4", "P6"]
+    },
+    "SupportCase": {
+      "definition": "A customer support request or incident associated with relevant account, person, and product context.",
+      "purpose": "Makes service experience available without conflating a case with an interaction or signal.",
+      "primary_key": "support_case_id",
+      "important_attributes": ["support_case_id", "account_id", "person_id", "subscription_id", "case_number", "status", "priority", "opened_at", "closed_at"],
+      "foreign_keys": ["account_id -> Account.account_id", "person_id -> Person.person_id", "subscription_id -> Subscription.subscription_id"],
+      "history": "Case identity is stable; source audit history supplies status transitions until a later event model is approved.",
+      "source_relationship": "Support-platform cases map through ExternalIdentityCrosswalk.",
+      "consumers": ["P4", "P6", "P7"]
+    },
+    "Signal": {
+      "definition": "A derived, time-stamped observation relevant to a canonical entity, such as intent, risk, engagement, or data-quality state.",
+      "purpose": "Carries explainable derived observations without mutating canonical entities.",
+      "primary_key": "signal_id",
+      "important_attributes": ["signal_id", "signal_type", "subject_entity_type", "subject_entity_id", "observed_at", "value", "confidence", "derivation_version", "expires_at"],
+      "foreign_keys": [],
+      "history": "Append-only and versioned by derivation logic; expiry does not delete the observation.",
+      "source_relationship": "Derived from source or canonical facts with lineage references defined in later pipeline phases.",
+      "consumers": ["P2", "P3", "P4", "P6", "P7"]
+    },
+    "EnrichmentSnapshot": {
+      "definition": "A point-in-time capture of third-party or internal enrichment attributes for a canonical subject.",
+      "purpose": "Preserves provider response, observation time, and provenance without overwriting canonical truth.",
+      "primary_key": "enrichment_snapshot_id",
+      "important_attributes": ["enrichment_snapshot_id", "subject_entity_type", "subject_entity_id", "provider", "observed_at", "payload_reference", "schema_version", "quality_status"],
+      "foreign_keys": [],
+      "history": "Immutable snapshot; newer responses create new rows.",
+      "source_relationship": "Provider request/response identifiers and licensing constraints must remain traceable.",
+      "consumers": ["P2", "P3", "P4", "P6"]
+    },
+    "Decision": {
+      "definition": "An auditable machine or human decision made about a business subject.",
+      "purpose": "Explains what was decided, by which policy or actor, from which evidence, without embedding workflow logic in entities.",
+      "primary_key": "decision_id",
+      "important_attributes": ["decision_id", "decision_type", "subject_entity_type", "subject_entity_id", "outcome", "reason_codes", "policy_version", "decided_at", "decided_by_type", "workflow_run_id"],
+      "foreign_keys": ["workflow_run_id -> WorkflowRun.workflow_run_id"],
+      "history": "Append-only; superseding decisions reference earlier decisions rather than updating them away.",
+      "source_relationship": "May be produced by a future workflow, analyst, or source system with evidence lineage.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6", "P7"]
+    },
+    "WorkflowRun": {
+      "definition": "One execution attempt of an automated or human-assisted revenue workflow.",
+      "purpose": "Provides idempotency, execution lineage, failure visibility, and recovery context.",
+      "primary_key": "workflow_run_id",
+      "important_attributes": ["workflow_run_id", "workflow_name", "workflow_version", "idempotency_key", "status", "started_at", "completed_at", "trigger_reference", "retry_of_workflow_run_id", "error_code"],
+      "foreign_keys": ["retry_of_workflow_run_id -> WorkflowRun.workflow_run_id"],
+      "history": "Each attempt is immutable; retries are new linked runs.",
+      "source_relationship": "Operational metadata generated by future pipelines and automations.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6", "P7"]
+    },
+    "ExternalIdentityCrosswalk": {
+      "definition": "An auditable, effective-dated mapping from a SourceRecord to one canonical entity.",
+      "purpose": "Decouples source identifiers from canonical IDs and supports remapping or manual correction without rewriting history.",
+      "primary_key": "external_identity_crosswalk_id",
+      "important_attributes": ["external_identity_crosswalk_id", "source_record_id", "canonical_entity_type", "canonical_entity_id", "mapping_status", "mapping_method", "confidence", "valid_from", "valid_to", "supersedes_crosswalk_id", "reviewed_by", "reviewed_at"],
+      "foreign_keys": ["source_record_id -> SourceRecord.source_record_id", "supersedes_crosswalk_id -> ExternalIdentityCrosswalk.external_identity_crosswalk_id"],
+      "history": "Append-only/effective-dated; corrections close the prior mapping and create a superseding row.",
+      "source_relationship": "Authoritative source-to-canonical linkage for all supported entity types.",
+      "consumers": ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
+    },
+    "SourceRecord": {
+      "definition": "A stable reference to one object as represented in one source system and source tenant.",
+      "purpose": "Preserves provenance and permits unresolved records without copying full raw payloads into the canonical contract.",
+      "primary_key": "source_record_id",
+      "important_attributes": ["source_record_id", "source_system", "source_tenant", "source_object_type", "source_object_id", "source_created_at", "source_updated_at", "ingested_at", "payload_reference", "record_fingerprint", "is_deleted_at_source"],
+      "foreign_keys": [],
+      "history": "Reference identity is stable for the source natural key; raw versions are retained by later ingestion storage design.",
+      "source_relationship": "Lead and Contact are represented as source_object_type values (for example salesforce_lead and salesforce_contact), not canonical entities.",
+      "consumers": ["P1", "P7"]
+    },
+    "AccountHierarchyRelationship": {
+      "definition": "An effective-dated directed relationship between two distinct canonical Accounts.",
+      "purpose": "Represents parent/subsidiary and other organizational structures without merging account identities.",
+      "primary_key": "account_hierarchy_relationship_id",
+      "important_attributes": ["account_hierarchy_relationship_id", "parent_account_id", "child_account_id", "relationship_type", "valid_from", "valid_to", "source_record_id"],
+      "foreign_keys": ["parent_account_id -> Account.account_id", "child_account_id -> Account.account_id", "source_record_id -> SourceRecord.source_record_id"],
+      "history": "Effective-dated; self-links and cycles are invalid, and prior parents remain historical.",
+      "source_relationship": "Asserted by sources or stewardship with provenance.",
+      "consumers": ["P2", "P3", "P4", "P5", "P6"]
+    },
+    "AccountNameHistory": {
+      "definition": "An effective-dated official name, trade name, or alias for an Account.",
+      "purpose": "Supports name changes and alternate names without changing Account identity.",
+      "primary_key": "account_name_history_id",
+      "important_attributes": ["account_name_history_id", "account_id", "name", "name_type", "is_preferred", "valid_from", "valid_to", "source_record_id"],
+      "foreign_keys": ["account_id -> Account.account_id", "source_record_id -> SourceRecord.source_record_id"],
+      "history": "Effective-dated selective SCD2; only one preferred name should be active per Account.",
+      "source_relationship": "Names retain source or stewardship provenance.",
+      "consumers": ["P1", "P2", "P3", "P4", "P5", "P6"]
+    },
+    "AccountDomainHistory": {
+      "definition": "An effective-dated normalized internet domain associated with an Account.",
+      "purpose": "Supports domain changes and multiple domains without treating a domain as permanent account identity.",
+      "primary_key": "account_domain_history_id",
+      "important_attributes": ["account_domain_history_id", "account_id", "domain_normalized", "domain_type", "is_primary", "valid_from", "valid_to", "source_record_id"],
+      "foreign_keys": ["account_id -> Account.account_id", "source_record_id -> SourceRecord.source_record_id"],
+      "history": "Effective-dated selective SCD2; domains can be reassigned only with non-overlapping evidence and audit history.",
+      "source_relationship": "Domains retain observed-source or stewardship provenance.",
+      "consumers": ["P1", "P2", "P3", "P4", "P6"]
+    }
+  },
+  "relationships": [
+    {"from": "Account", "to": "AccountNameHistory", "cardinality": "one-to-many", "required": true},
+    {"from": "Account", "to": "AccountDomainHistory", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "AccountHierarchyRelationship", "cardinality": "one-to-many-as-parent-or-child", "required": false},
+    {"from": "Account", "to": "AccountPersonRelationship", "cardinality": "one-to-many", "required": false},
+    {"from": "Person", "to": "AccountPersonRelationship", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Opportunity", "cardinality": "one-to-many", "required": true, "rule": "Every Opportunity has exactly one primary Account."},
+    {"from": "Opportunity", "to": "OpportunityPersonRole", "cardinality": "one-to-many", "required": false},
+    {"from": "Person", "to": "OpportunityPersonRole", "cardinality": "one-to-many", "required": false},
+    {"from": "Campaign", "to": "Activity", "cardinality": "one-to-many", "required": false},
+    {"from": "Person", "to": "Activity", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Activity", "cardinality": "one-to-many", "required": false},
+    {"from": "Opportunity", "to": "Activity", "cardinality": "one-to-many", "required": false},
+    {"from": "Opportunity", "to": "Quote", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Quote", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Contract", "cardinality": "one-to-many", "required": false},
+    {"from": "Opportunity", "to": "Contract", "cardinality": "one-to-many", "required": false},
+    {"from": "Quote", "to": "Order", "cardinality": "one-to-many", "required": false},
+    {"from": "Contract", "to": "Order", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Order", "cardinality": "one-to-many", "required": false},
+    {"from": "Contract", "to": "Subscription", "cardinality": "one-to-many", "required": false},
+    {"from": "Order", "to": "Subscription", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Subscription", "cardinality": "one-to-many", "required": false},
+    {"from": "Subscription", "to": "Invoice", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "Invoice", "cardinality": "one-to-many", "required": false},
+    {"from": "Person", "to": "ProductUser", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "ProductUser", "cardinality": "one-to-many", "required": false},
+    {"from": "Account", "to": "SupportCase", "cardinality": "one-to-many", "required": false},
+    {"from": "Person", "to": "SupportCase", "cardinality": "one-to-many", "required": false},
+    {"from": "Subscription", "to": "SupportCase", "cardinality": "one-to-many", "required": false},
+    {"from": "WorkflowRun", "to": "Decision", "cardinality": "one-to-many", "required": false},
+    {"from": "SourceRecord", "to": "ExternalIdentityCrosswalk", "cardinality": "one-to-many-over-time", "required": false}
+  ],
+  "polymorphic_subjects": {
+    "Signal": ["Account", "Person", "Opportunity", "Contract", "Subscription", "SupportCase"],
+    "EnrichmentSnapshot": ["Account", "Person"],
+    "Decision": ["Account", "Person", "Opportunity", "Activity", "Quote", "Contract", "Order", "Subscription", "Invoice", "SupportCase", "Signal"],
+    "ExternalIdentityCrosswalk": ["Account", "Person", "Opportunity", "Activity", "Campaign", "Quote", "Contract", "Order", "Subscription", "Invoice", "ProductUser", "SupportCase"]
+  },
+  "invariants": [
+    "Canonical identifiers never embed source-system identifiers.",
+    "Lead and Contact are SourceRecord object types and never canonical Person subtypes.",
+    "An active crosswalk row maps one SourceRecord to at most one canonical entity at a time.",
+    "A Person may have many historical Account affiliations.",
+    "An Opportunity has exactly one primary buying Account.",
+    "Account hierarchy parent and child identities remain distinct.",
+    "Customer status is an Account lifecycle attribute, not a separate entity.",
+    "Unresolved source records and activities are preserved without fabricated canonical links.",
+    "Temporal rows use half-open validity intervals: valid_from inclusive, valid_to exclusive; null valid_to means current.",
+    "Corrections and retries supersede or link prior records instead of erasing audit history."
+  ]
+}
