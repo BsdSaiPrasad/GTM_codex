@@ -52,4 +52,4 @@ None for closing P1.0/P1.1. P1.2 requires an explicit design choice for canonica
 
 ## Last verified commit
 
-The milestone implementation commit is recorded in `WORK_LOG.md` after commit creation. The repository's current commit can always be resolved with `git rev-parse HEAD`; this avoids embedding a self-referential hash in the commit that creates this file.
+Implementation commit `33e35c9` (`feat: establish P1 canonical data architecture`) was validated with the checks recorded in `WORK_LOG.md`. A later documentation-only commit records this hash and does not change the architecture.
