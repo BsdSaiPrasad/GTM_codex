@@ -89,4 +89,4 @@ Observed results after the complete documentation edit:
 
 ### Git commit
 
-Pending commit creation. The verified documentation hash will be recorded in a follow-up continuity commit.
+Documentation milestone commit: `77b1614` (`docs: improve repository learning experience`). Authored and committed under the repository user's configured Git identity. This hash is recorded by a follow-up continuity commit to avoid self-reference.

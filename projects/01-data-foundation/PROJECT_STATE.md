@@ -59,4 +59,4 @@ None for closing P1.0/P1.1. P1.2 requires an explicit design choice for canonica
 
 ## Last verified commit
 
-P1.1 implementation commit `33e35c9` remains the last engineering implementation. The verified repository-cleanup commit is recorded in `WORK_LOG.md` after commit creation; this supporting milestone does not implement P1.2 or change the architecture.
+P1.1 implementation commit `33e35c9` remains the last engineering implementation. Documentation milestone commit `77b1614` (`docs: improve repository learning experience`) passed the checks recorded in `WORK_LOG.md`; it does not implement P1.2 or change the architecture.
