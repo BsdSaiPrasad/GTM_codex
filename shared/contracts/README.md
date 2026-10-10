@@ -1,8 +1,12 @@
 # Shared Contracts
 
-This directory is the authoritative cross-project contract boundary for SAI RevenueOS.
+## What Is a Shared Contract?
 
-`canonical-model.v1.json` defines P1's versioned logical entity and relationship catalog. It is deliberately implementation-neutral: downstream projects may map it into warehouse, API, event, or semantic-layer representations without changing canonical meaning.
+A data contract is a versioned agreement about data meaning, structure, and allowed relationships. This directory is the authoritative cross-project contract boundary for SAI RevenueOS.
+
+`canonical-model.v1.json` defines Project 1's logical entity and relationship catalog. It is machine-readable and implementation-neutral. Future projects may map it into warehouse tables, Application Programming Interfaces (APIs), events, or semantic models without changing what an Account, Person, or other canonical entity means.
+
+For a plain-English explanation of every entity, read the [canonical business model](../../projects/01-data-foundation/architecture/CANONICAL_BUSINESS_MODEL.md). For terminology, use the [glossary](../../docs/GLOSSARY.md).
 
 ## Versioning rules
 
@@ -11,4 +15,4 @@ This directory is the authoritative cross-project contract boundary for SAI Reve
 - Do not copy and modify this contract inside a project. Propose changes here and assess consumers.
 - A contract update must pass `projects/01-data-foundation/scripts/validate_architecture.py` and update P1 continuity files.
 
-The contract is architectural in P1.1. It is not a deployable database DDL or an assertion that source data has already been loaded.
+The current contract is architecture, not deployable Data Definition Language (DDL), and it does not claim that source data has been loaded.

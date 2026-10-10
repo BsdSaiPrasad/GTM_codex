@@ -1,18 +1,32 @@
 # P1 Architecture Decision Index
 
-These decisions were approved before implementation and are not reopened by P1.0/P1.1. Status `Accepted` means the logical model must conform. A future change requires an explicit superseding ADR; cross-project impact must be labeled **MASTER ARCHITECTURE DECISION NEEDED**.
+## What Is This File?
 
-| ID | Decision | Status | Reasoning | Important tradeoffs | ADR |
-|---|---|---|---|---|---|
-| D001 | One durable canonical Person per human across sources, stages, and employers. | Accepted | Stable human identity prevents CRM lifecycle/source representations from fragmenting history. | Resolution and merge/unmerge become explicit operational responsibilities. | [ADR-0001](architecture/adr/0001-canonical-person.md) |
-| D002 | Parent companies and subsidiaries are separate Accounts joined by explicit hierarchy relationships. | Accepted | Revenue, contracts, territories, and engagement often occur at different organizational levels. | Hierarchy traversal and cycle validation are required. | [ADR-0002](architecture/adr/0002-canonical-account-hierarchy.md) |
-| D003 | Preserve selected Account name, domain, and hierarchy history with selective SCD2. | Accepted | As-of analysis and identity evidence require time-aware attributes. | More joins and interval-quality tests; avoids blanket SCD2 complexity. | [ADR-0003](architecture/adr/0003-historical-account-attributes.md) |
-| D004 | Lead and Contact are source-system representations linked to Person. | Accepted | Operational object type and conversion state do not define a human. | Source conversion history must be preserved outside the canonical Person. | [ADR-0004](architecture/adr/0004-lead-and-contact.md) |
-| D005 | Opportunity has one primary Account; people participate through OpportunityPersonRole. | Accepted | Makes pipeline ownership unambiguous while supporting a multi-person buying committee. | Multi-account deals require later explicit extensions rather than overloading primary Account. | [ADR-0005](architecture/adr/0005-opportunity-relationships.md) |
-| D006 | Customer is Account lifecycle status; Contract and Subscription retain independent identities/history. | Accepted | Avoids a duplicate company identity and preserves commercial object lifecycles. | The authoritative derivation of customer status is deferred and must be governed. | [ADR-0006](architecture/adr/0006-customer-lifecycle.md) |
-| D007 | Activity, Campaign, and ProductUser are distinct and link to canonical context while supporting unresolved identities. | Accepted | Separates interactions, initiatives, and product profiles while preventing data loss before matching. | More explicit joins and resolution-state handling. | [ADR-0007](architecture/adr/0007-interaction-model.md) |
-| D008 | Use a separate auditable external-ID crosswalk with effective-dated mappings and corrections. | Accepted | Decouples source keys from canonical identity and makes reconciliation explainable. | Requires mapping governance and time-aware uniqueness controls. | [ADR-0008](architecture/adr/0008-external-identity-crosswalk.md) |
+This is the index of Project 1's approved architecture decisions. An Architecture Decision Record (ADR) explains the problem, alternatives, decision, technical design, and tradeoffs.
 
-## Implementation note
+All eight decisions below are **Accepted**. The documentation cleanup made their explanations easier to learn but did not change their meaning. A future change requires a new superseding ADR. A change that affects Projects 2–7 must be labeled **MASTER ARCHITECTURE DECISION NEEDED** before implementation.
 
-P1.1 implements these decisions in the logical entity catalog and ERD. It does not implement the matching, survivorship, reconciliation, or physical history mechanisms that operationalize them; those begin in later P1 phases.
+## Approved Decisions
+
+| ID | Plain-English decision | Why it matters | ADR |
+|---|---|---|---|
+| **D001** | One durable canonical Person represents one human across systems and employers. | Prevents duplicate people and preserves a continuous human identity. | [One Canonical Person Represents One Human](architecture/adr/0001-canonical-person.md) |
+| **D002** | Parent companies and subsidiaries are separate Accounts connected by history-aware relationships. | Keeps entity-level revenue and contracts accurate while supporting rollups. | [Keep Parent and Subsidiary Accounts Separate](architecture/adr/0002-canonical-account-hierarchy.md) |
+| **D003** | Preserve selected Account name, domain, and hierarchy history using selective Slowly Changing Dimension Type 2 (SCD Type 2). | Supports as-of reporting without adding history complexity everywhere. | [Preserve Important Account History Selectively](architecture/adr/0003-historical-account-attributes.md) |
+| **D004** | Lead and Contact are source-system records linked to Person, not separate canonical humans. | Keeps Customer Relationship Management (CRM) lifecycle separate from human identity. | [Model Lead and Contact as Source Records](architecture/adr/0004-lead-and-contact.md) |
+| **D005** | Opportunity has one primary buying Account; people participate through OpportunityPersonRole. | Makes revenue attribution clear and supports a real buying committee. | [Give Each Opportunity One Primary Account and Many People](architecture/adr/0005-opportunity-relationships.md) |
+| **D006** | Customer is an Account lifecycle status; Contract and Subscription keep independent identities. | Avoids duplicate company records and preserves commercial history. | [Customer Is an Account Lifecycle Status](architecture/adr/0006-customer-lifecycle.md) |
+| **D007** | Activity, Campaign, and ProductUser are different entities that share canonical context when resolved. | Prevents unlike engagement concepts from being combined. | [Keep Activity, Campaign, and ProductUser Distinct](architecture/adr/0007-interaction-model.md) |
+| **D008** | An auditable, effective-dated crosswalk maps source records to canonical entities. | Keeps canonical IDs vendor-independent and makes corrections traceable. | [Use an Auditable External-ID Crosswalk](architecture/adr/0008-external-identity-crosswalk.md) |
+
+## What These Decisions Do Not Yet Implement
+
+The decisions define the architecture. They do not mean the following capabilities are running:
+
+- Source-system ingestion.
+- Canonical ID generation.
+- Identity matching and confidence thresholds.
+- Survivorship or merge/unmerge workflows.
+- Physical warehouse constraints and reconciliation jobs.
+
+Those capabilities belong to later P1 phases. The immediate next milestone remains **P1.2 — Canonical ID Generation and External-ID Crosswalk Strategy**.

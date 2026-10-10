@@ -2,13 +2,21 @@
 
 ## Project Structure & Module Organization
 
-This repository is currently an empty project scaffold. As code is added, keep the root focused on project metadata and documentation. Use `src/` for application code, `tests/` for automated tests, `assets/` for static resources, and `docs/` for design or operational notes. Mirror source paths in tests where practical; for example, `src/pipeline/loader.py` should be covered by `tests/pipeline/test_loader.py`.
+This repository contains the SAI RevenueOS architecture and the implemented P1.0/P1.1 documentation foundation. Keep the root focused on project metadata and navigation. Shared cross-project definitions belong in `shared/contracts/`; project-specific work belongs under `projects/<project-name>/`; repository-wide learning and architecture guides belong in `docs/`.
+
+When application code is introduced, use clear project-local `src/` and `tests/` directories and mirror source paths in tests where practical. Do not create empty folders for future projects or phases.
 
 Avoid committing generated output, local environments, editor settings, credentials, or large datasets. Add these paths to `.gitignore` when the relevant tooling is introduced.
 
 ## Build, Test, and Development Commands
 
-No build system or runtime has been configured yet. When adding one, provide a small, documented command surface—preferably through a `Makefile` or package scripts. Recommended targets are:
+No application runtime has been configured yet. The current architecture can be checked with:
+
+```bash
+python3 projects/01-data-foundation/scripts/validate_architecture.py
+```
+
+When a build system is added, provide a small, documented command surface—preferably through a `Makefile` or package scripts. Recommended targets are:
 
 - `make setup` — install development dependencies.
 - `make test` — run the complete automated test suite.
@@ -16,6 +24,12 @@ No build system or runtime has been configured yet. When adding one, provide a s
 - `make run` — start the project locally.
 
 Keep this section synchronized with the actual commands; contributors should not need to inspect CI configuration to discover basic workflows.
+
+## Documentation Guidelines
+
+Use plain English before technical terminology. Explain acronyms when first introduced. Use small synthetic business examples for important architecture concepts and decisions. Preserve technical accuracy and verified status.
+
+Apply this rule to Projects 1–7. Clearly distinguish architecture that has been designed from software that has been implemented and executed. Reuse the fictional companies and people defined in `docs/START_HERE.md` so examples remain consistent. Never describe synthetic examples as real customers or production results.
 
 ## Coding Style & Naming Conventions
 

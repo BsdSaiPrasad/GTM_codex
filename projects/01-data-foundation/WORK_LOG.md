@@ -52,3 +52,41 @@ No architecture failure occurred. A global `mmdc` binary was unavailable, so the
 ### Git commit
 
 Implementation commit: `33e35c9` (`feat: establish P1 canonical data architecture`). Authored and committed under the repository user's configured Git identity. This log entry is added by a follow-up documentation-only continuity commit to avoid a self-referential hash.
+
+## 2026-10-10 — Repository Cleanup and Documentation Improvement
+
+### Implemented
+
+- Renamed the existing GitHub repository from `BsdSaiPrasad/GTM_codex` to `BsdSaiPrasad/sai-revenueos` without creating a new repository or changing history.
+- Updated the repository description and local `origin` URL.
+- Reworked the main README as a beginner-friendly landing page with the seven-project map, current progress, repository structure, and reading order.
+- Added one central glossary and one continuous beginner walkthrough using synthetic Globex Health, Sarah Kim, John Lee, and related examples.
+- Rewrote all eight ADRs with the same approved decisions and a consistent problem → example → options → decision → technical design → reasoning → tradeoffs → interview explanation structure.
+- Reorganized the canonical model explanation into five logical learning sections and added an ERD reading guide while preserving all 23 entity names and technical identifiers.
+- Simplified the P1 README, master architecture, and decision index while keeping each document focused on one responsibility.
+- Updated repository-wide documentation guidelines in `AGENTS.md`.
+
+### Architecture boundaries
+
+- `shared/contracts/canonical-model.v1.json` was not modified.
+- `architecture/diagrams/canonical-model.mmd` was not modified.
+- D001–D008 retain their original accepted meaning.
+- No P1.2 ID, crosswalk lifecycle, matching, or implementation decision was added.
+- No P2–P7 functionality or scaffolding was created.
+
+### Verification evidence
+
+Observed results after the complete documentation edit:
+
+- `python3 projects/01-data-foundation/scripts/validate_architecture.py` — **passed**: 23 entities, 31 relationships, 8 decisions, ERD coverage, continuity files, and secret-filename checks.
+- `python3 -m json.tool shared/contracts/canonical-model.v1.json` and Python compilation of the validator — **passed**.
+- Contract/model consistency script — **passed**: all 23 contract entities appear in the teaching guide, all 31 relationships remain declared, all 8 ADRs remain Accepted with the required sections, and all relative Markdown links resolve.
+- Protected-file comparison — **passed**: shared contract, technical ERD, and validator are byte-for-byte unchanged from the prior commit.
+- Mermaid CLI 11.12.0 — **passed**: canonical ERD, root overview, and master-architecture diagrams compiled to SVG; the two new overview diagrams also compiled to PNG and were visually inspected.
+- Repository-reference and boundary checks — **passed**: no active old GitHub URL, no P1.2/later implementation directory, and no unrelated staged path.
+- GitHub and Git remote checks — **passed**: `BsdSaiPrasad/sai-revenueos`, expected description, default branch `main`, new `origin`, and reachable remote `main`.
+- Secret checks — **passed**: no tracked `.env`/`.DS_Store`, private-key marker, GitHub token pattern, AWS access-key pattern, or password assignment in staged files.
+
+### Git commit
+
+Pending commit creation. The verified documentation hash will be recorded in a follow-up continuity commit.

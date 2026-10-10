@@ -1,17 +1,42 @@
-# ADR-0001: Durable Canonical Person
+# ADR-0001: One Canonical Person Represents One Human
 
 - **Decision ID:** D001
 - **Status:** Accepted
 - **Scope:** P1 canonical identity
 
-## Context
+## 1. The Problem
 
-A human may appear as a marketing contact, CRM Lead, converted Contact, product profile, and support requester, and may change employers.
+The same human can appear in a Customer Relationship Management (CRM) system, marketing platform, product application, and support tool. Treating every record as a different person creates duplicates and breaks history.
 
-## Decision
+## 2. Real-World Example
 
-Represent the human once as a durable Person. Model employer history through AccountPersonRelationship and source representations through SourceRecord plus ExternalIdentityCrosswalk.
+Synthetic person **Sarah Kim** appears as a Salesforce Lead, a HubSpot contact, and a product user. She works at **Globex Health** and later joins **Northstar Labs**. Sarah is still one human.
 
-## Consequences
+## 3. Options We Considered
 
-Longitudinal history is coherent and source lifecycle changes do not create new people. P1 must later provide conservative match, merge, unmerge, and stewardship controls because a bad canonical merge has broad impact.
+- Create a different Person for each source record. This is simple but produces duplicates.
+- Use email as the Person ID. Email can change, be shared, or be missing.
+- Create one source-independent Person and connect source and employment records separately.
+
+## 4. Our Decision
+
+Create one durable canonical `Person` for one human across source systems, lifecycle stages, and employers.
+
+## 5. How It Works Technically
+
+- `Person.person_id` is the stable canonical identity.
+- Salesforce Leads, Contacts, HubSpot contacts, and product profiles remain `SourceRecord` objects.
+- `ExternalIdentityCrosswalk` maps confirmed source records to Person.
+- `AccountPersonRelationship` stores Sarah's effective-dated employment at Globex Health and Northstar Labs.
+
+## 6. Why We Chose It
+
+The human is more stable than an email address, employer, or CRM lifecycle. This design preserves a continuous view of the person while keeping source evidence and employer history.
+
+## 7. Tradeoffs and Limitations
+
+This model requires identity resolution, relationship history, and safe merge/unmerge controls. A bad match can affect many downstream records, so later phases must use conservative rules and auditability.
+
+## 8. Interview Explanation
+
+“I separated a person's permanent identity from CRM records and employment relationships. That lets one person appear in several systems or change employers without creating duplicate identities or losing history.”

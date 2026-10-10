@@ -1,17 +1,44 @@
-# ADR-0008: Auditable External Identity Crosswalk
+# ADR-0008: Use an Auditable External-ID Crosswalk
 
 - **Decision ID:** D008
 - **Status:** Accepted
 - **Scope:** P1 source-to-canonical identity
 
-## Context
+## 1. The Problem
 
-Canonical entities can have multiple source records, source identifiers can change, and an initially plausible match can later require correction.
+One canonical entity can have records in several systems. Matches can also be wrong and require correction. Embedding external IDs directly in canonical entities makes both problems difficult to manage.
 
-## Decision
+## 2. Real-World Example
 
-Use ExternalIdentityCrosswalk as a separate effective-dated mapping from SourceRecord to a supported canonical entity. Record method, status, confidence, validity, review, and supersession metadata.
+Salesforce Account `SF-1001` and HubSpot Company `HS-502` both describe synthetic Globex Health. Later, an analyst discovers that another HubSpot company was mapped to Globex by mistake.
 
-## Consequences
+## 3. Options We Considered
 
-Canonical IDs remain source-independent and corrections are explainable without rewriting history. P1.2 must define ID generation, active-mapping uniqueness, matching states, and reconciliation behavior.
+- Add one Salesforce ID, HubSpot ID, and other vendor columns to Account. This does not scale and assumes one record per source.
+- Use a domain or external ID as the canonical Account ID. Source values can change and are not globally reliable.
+- Store source records separately and use an effective-dated mapping table.
+
+## 4. Our Decision
+
+Use `ExternalIdentityCrosswalk` as a separate, auditable mapping from `SourceRecord` to a supported canonical entity. Support multiple source records, historical mappings, and future manual corrections.
+
+## 5. How It Works Technically
+
+- `source_record_id` identifies the source object.
+- `canonical_entity_type` and `canonical_entity_id` identify the supported target.
+- `mapping_status`, `mapping_method`, and `confidence` describe the mapping outcome, not the original source object.
+- `valid_from` and `valid_to` preserve mapping intervals.
+- `supersedes_crosswalk_id`, reviewer, and review time support correction lineage.
+- One SourceRecord may have historical mappings but at most one active target at a time.
+
+## 6. Why We Chose It
+
+The crosswalk keeps canonical IDs vendor-independent, supports many source records per entity, and makes corrections explainable without rewriting history.
+
+## 7. Tradeoffs and Limitations
+
+The system needs mapping governance, temporal uniqueness, reconciliation, and manual review. P1.2 must define ID generation, lifecycle states, idempotency, correction, merge/unmerge, and recovery before these mechanics are implemented.
+
+## 8. Interview Explanation
+
+“I used an effective-dated crosswalk between source records and canonical entities. That supports many systems, preserves provenance, and lets us correct a bad match without deleting the old evidence.”

@@ -1,20 +1,18 @@
 # SAI RevenueOS Master Architecture
 
-## Purpose and boundaries
+## What Is This Document?
 
-SAI RevenueOS is a portfolio-grade synthetic B2B SaaS revenue platform divided into seven bounded projects. Project 1 owns canonical customer and revenue identities plus the shared logical contracts that downstream projects consume. This document records the boundary; it does not design P2–P7.
+This document defines the boundaries of the seven SAI RevenueOS projects. It explains what each project is responsible for and prevents one project from silently redesigning another.
 
-| Project | Responsibility | Current repository status |
-|---|---|---|
-| P1 — Data Foundation & Customer Identity | Canonical entities, external identity linkage, history, provenance, and future activation foundations | P1.0 and P1.1 implemented |
-| P2 — Inbound | Future inbound demand capabilities | Not implemented |
-| P3 — Outbound | Future outbound capabilities | Not implemented |
-| P4 — Revenue Intelligence | Future forecasting and revenue analytics | Not implemented |
-| P5 — Quote to Cash | Future commercial transaction workflows | Not implemented |
-| P6 — Customer 360 | Future customer health and lifecycle experiences | Not implemented |
-| P7 — Reliability | Future observability and operational controls | Not implemented |
+For a guided business example, read [Start Here](START_HERE.md). For terminology, use the [glossary](GLOSSARY.md).
 
-## Architectural flow
+## Why Split RevenueOS Into Projects?
+
+A Revenue Operations (RevOps) platform connects many concerns: customer identity, marketing, sales, contracts, billing, product use, support, automation, and reliability. Building them as one undefined system would make ownership and dependencies hard to explain.
+
+The seven-project structure gives each concern a clear home. Shared definitions still come from Project 1 so that later projects do not invent conflicting Accounts, Persons, or Opportunities.
+
+## How Data Will Flow
 
 ```mermaid
 flowchart LR
@@ -22,39 +20,59 @@ flowchart LR
   X --> C[P1 canonical identities]
   C --> R[Canonical relationships and history]
   R --> K[Versioned shared contracts]
-  K -. future consumption .-> P2[P2 Inbound]
-  K -. future consumption .-> P3[P3 Outbound]
-  K -. future consumption .-> P4[P4 Revenue Intelligence]
-  K -. future consumption .-> P5[P5 Quote to Cash]
-  K -. future consumption .-> P6[P6 Customer 360]
+  K -. future use .-> P2[P2 Inbound]
+  K -. future use .-> P3[P3 Outbound]
+  K -. future use .-> P4[P4 Revenue Intelligence]
+  K -. future use .-> P5[P5 Quote to Cash]
+  K -. future use .-> P6[P6 Customer 360]
   K -. future controls .-> P7[P7 Reliability]
 ```
 
-P1 separates immutable canonical identifiers from mutable business attributes. Source records remain traceable through an auditable crosswalk. Time-varying names, domains, hierarchies, and employment affiliations are modeled explicitly rather than overwriting prior state.
+Example: synthetic company Globex Health can appear in Salesforce and HubSpot. P1 preserves both source records, connects them to one canonical Account when resolved, and publishes a shared contract. Future projects will use that Account rather than creating their own company identities.
 
-## Contract ownership
+## The Seven Project Boundaries
 
-Cross-project contracts live in `shared/contracts/`; project-local documents explain and govern them but must not redefine incompatible copies. Contract versions use an explicit major version. Breaking changes require a new major version and review of all downstream consumers.
+| Project | What it owns | Current status |
+|---|---|---|
+| **P1 — Data Foundation & Customer Identity** | Canonical entities, source identity, historical relationships, provenance, and shared data contracts. | P1.0 and P1.1 complete |
+| **P2 — Inbound** | Future inbound demand capture, scoring, and routing. | Planned |
+| **P3 — Outbound** | Future prospecting, sequencing, and outbound engagement. | Planned |
+| **P4 — Revenue Intelligence** | Future pipeline, forecasting, and revenue analytics. | Planned |
+| **P5 — Quote to Cash** | Future quoting, contracts, orders, billing, and commercial workflows. | Planned |
+| **P6 — Customer 360** | Future product adoption, support, customer health, and renewal views. | Planned |
+| **P7 — Reliability** | Future data quality, monitoring, recovery, and governance controls. | Planned |
 
-The current contract, `canonical-model.v1.json`, is a logical architecture contract rather than a physical warehouse schema. It defines entity identity, ownership, history behavior, and relationship cardinality. Warehouse-specific types, clustering, ingestion metadata, and dbt models are deferred.
+## What P1 Publishes
 
-## Platform invariants
+P1 owns the shared logical model in `shared/contracts/canonical-model.v1.json`. Other projects may map that contract into warehouse tables, Application Programming Interfaces (APIs), events, or semantic models, but they must not create incompatible definitions inside their own folders.
 
-1. Canonical identity is stable and source-independent.
-2. A human is represented once as a Person even when their employer or source-system object changes.
-3. Parent and subsidiary Accounts retain distinct identities and explicit time-bound relationships.
-4. Lead and Contact are source records, never alternate canonical Person tables.
-5. Every Opportunity has exactly one primary buying Account; participants use OpportunityPersonRole.
-6. Customer is Account lifecycle state, not a duplicate business entity.
-7. Commercial objects (Quote, Contract, Order, Subscription, Invoice) retain independent identities.
-8. Source-to-canonical mappings are auditable, effective-dated, and correctable.
-9. Unresolved source records and interactions remain preservable without inventing canonical matches.
-10. Raw sensitive attributes and access controls will be designed before physical ingestion; no real customer data belongs in this repository.
+A breaking change—such as changing what an Account ID means—requires a new major contract version and a review of every downstream project. If work reveals a cross-project change, label it **MASTER ARCHITECTURE DECISION NEEDED** before implementation.
 
-## Approved decisions
+## Architecture Rules That Must Remain True
 
-The eight approved P1 decisions are indexed in [`DECISIONS.md`](../projects/01-data-foundation/DECISIONS.md) and recorded as ADRs. Changes affecting other project boundaries must be raised as **MASTER ARCHITECTURE DECISION NEEDED** rather than introduced silently.
+1. Canonical IDs are stable and independent of source-system IDs.
+2. One human is one Person even when source records or employers change.
+3. Parent and subsidiary Accounts remain separate and use explicit hierarchy relationships.
+4. Lead and Contact are source-system records, not alternative Person entities.
+5. Every Opportunity has one primary buying Account; people join through OpportunityPersonRole.
+6. Customer is an Account lifecycle status, not a duplicate company entity.
+7. Quote, Contract, Order, Subscription, and Invoice keep their own identities.
+8. Activity, Campaign, and ProductUser are different concepts.
+9. Source-to-canonical mappings are auditable, effective-dated, and correctable.
+10. Unresolved records remain available without inventing a match.
 
-## Current limitations
+The reasoning is recorded in the [P1 decision index](../projects/01-data-foundation/DECISIONS.md).
 
-P1.0/P1.1 define and validate the logical model only. They do not implement a Snowflake schema, source ingestion, identity matching, survivorship, reconciliation jobs, security policies, dbt transformations, reverse ETL, or downstream workflows. Those capabilities require later phases and explicit operational decisions.
+## What Could Go Wrong?
+
+- A later project could copy the contract and change its meaning locally.
+- Documentation could describe a planned system as already running.
+- A source-system identifier could accidentally become a canonical ID.
+- A correction could overwrite history instead of preserving evidence.
+- Real customer or credential data could be committed to this synthetic project.
+
+Repository validation catches structural drift, but future physical systems will also need security, reconciliation, and operational controls.
+
+## What Comes Next?
+
+The next engineering milestone remains **P1.2 — Canonical ID Generation and External-ID Crosswalk Strategy**. Its architecture choices must be approved before implementation. P2–P7 stay planned until their own work begins.

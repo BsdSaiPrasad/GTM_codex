@@ -1,94 +1,182 @@
-# Canonical Business Model
+# P1 Canonical Business Model
 
-## 1. Scope
+## 1. What Is This Model?
 
-This is the P1.1 logical model for SAI RevenueOS. It specifies business meaning, stable identity, key relationships, selective history, and source provenance. It intentionally stops before physical Snowflake DDL, matching rules, survivorship, pipeline design, and activation.
+The canonical business model is the shared vocabulary for SAI RevenueOS. It defines what an Account, Person, Opportunity, Contract, and other important business concepts mean independently of any source system.
 
-The version-controlled visual is [`diagrams/canonical-model.mmd`](diagrams/canonical-model.mmd). The authoritative cross-project machine-readable catalog is [`../../../shared/contracts/canonical-model.v1.json`](../../../shared/contracts/canonical-model.v1.json). When this narrative and the contract differ, treat the contract as the interface and resolve the documentation defect before implementation.
+The model contains 23 entities. The machine-readable contract is [`canonical-model.v1.json`](../../../shared/contracts/canonical-model.v1.json), and the visual Entity Relationship Diagram (ERD) is [`canonical-model.mmd`](diagrams/canonical-model.mmd). This document explains them in plain English without changing their technical names.
 
-## 2. Modeling conventions
+All examples use synthetic companies and people. They are not real customers.
+
+## 2. Why Do We Need a Canonical Model?
+
+Salesforce, HubSpot, a product application, a billing platform, and a support tool can all describe the same company differently. If every source definition flows directly into reporting, Revenue Operations (RevOps) teams may count duplicate companies, lose history, or connect revenue to the wrong people.
+
+The canonical model preserves every source record while giving shared business concepts durable identities and explicit relationships.
+
+## 3. How to Read the ERD
+
+An ERD is a visual map of entities and their relationships.
+
+### Entities and attributes
+
+Each box is an entity. The rows inside are attributes.
+
+```text
+ACCOUNT
+  account_id       PK
+  account_type
+  lifecycle_status
+```
+
+`account_id` is the Primary Key (PK): it uniquely identifies one Account.
+
+### Foreign keys
+
+A Foreign Key (FK) points to another entity's primary key. For example, `Opportunity.primary_account_id` points to `Account.account_id`. This means every Opportunity has one primary buying Account.
+
+### One-to-many relationships
+
+One Account can have many Opportunities:
+
+```text
+Account 1 ─── 0..many Opportunities
+```
+
+An Account can exist before it has an Opportunity, so the minimum on the Opportunity side is zero.
+
+### Many-to-many relationships
+
+One Opportunity can involve many Persons, and one Person can join many Opportunities. `OpportunityPersonRole` resolves this many-to-many relationship and records each person's role.
+
+```text
+Person ──< OpportunityPersonRole >── Opportunity
+```
+
+Sarah Kim can be the champion while John Lee is the economic buyer. A direct Person field on Opportunity could not represent that buying committee cleanly.
+
+### Historical relationships
+
+Some relationships change over time. These entities contain `valid_from` and `valid_to`:
+
+- `AccountPersonRelationship` preserves employer history.
+- `AccountHierarchyRelationship` preserves parent-company history.
+- `AccountNameHistory` and `AccountDomainHistory` preserve company identity evidence.
+- `OpportunityPersonRole` preserves changing buying roles.
+- `ExternalIdentityCrosswalk` preserves mapping corrections.
+
+The interval is half-open: `valid_from` is included, `valid_to` is excluded, and a null `valid_to` means the row is current.
+
+## 4. Core Modeling Rules
 
 ### Stable identity
 
-Canonical primary keys are opaque, source-independent identifiers named `<entity>_id`. They never encode a CRM ID, email, domain, or mutable business attribute. P1.2 will choose the generation mechanism and crosswalk reconciliation strategy.
+Canonical primary keys are opaque and source-independent. They never contain a Salesforce ID, email address, domain, or another mutable business value. P1.2 will choose the ID-generation method.
 
-### Time and history
+### Selective history
 
-Selective SCD Type 2 semantics apply only where the business needs state as-of-time: account name, account domain, account hierarchy, person-account affiliation, opportunity participant role, and crosswalk mapping. These structures use half-open intervals: `valid_from` is inclusive, `valid_to` is exclusive, and a null `valid_to` means current. Immutable events/snapshots are appended. This avoids applying SCD2 to every table.
+Slowly Changing Dimension Type 2 (SCD Type 2) history is used only where the business needs an as-of view. We do not apply history tables to every attribute automatically.
 
-### Optional resolution
+### Safe unresolved records
 
-Interactions and product profiles may arrive before identity resolution. Their source reference and `resolution_status` remain usable while canonical foreign keys are null. A missing match never justifies fabricating a Person or Account.
+An Activity or ProductUser can arrive before RevenueOS knows the correct Person or Account. The source record and resolution status remain available while canonical links are null. The system must not invent a match.
 
-### Polymorphic subjects
+### Controlled polymorphic references
 
-Signal, EnrichmentSnapshot, and Decision use an explicit `subject_entity_type` plus `subject_entity_id` logical reference. ExternalIdentityCrosswalk uses the analogous `canonical_entity_type` and `canonical_entity_id`. The allowed targets are enumerated in the shared contract. A later physical design must enforce them through a validated registry, subtype link tables, or equivalent warehouse tests; unrestricted strings are not acceptable in production.
+`Signal`, `EnrichmentSnapshot`, and `Decision` can refer to several allowed entity types through a type-and-ID pair. `ExternalIdentityCrosswalk` uses the same pattern for supported canonical targets. The shared contract lists allowed targets; a future physical implementation must enforce them.
 
-## 3. Identity and organization model
+## 5. Customer and Organization Identity
 
-| Entity | Business definition and purpose | PK and important attributes | FKs / relationships and cardinality | History and source relationship | Future consumers |
-|---|---|---|---|---|---|
-| **Account** | Durable identity for a selling-relevant organization. Parent and subsidiary companies remain separate Accounts. Customer is a lifecycle status on this entity, not another company record. | `account_id`; type, lifecycle status, customer start/end timestamps, audit timestamps. | One Account has 1..* names, 0..* domains, affiliations, Opportunities, commercial objects, and hierarchy edges. | Identity is durable. Selected mutable facts live in effective-dated tables. Source companies/accounts map through the crosswalk. | P2–P7 |
-| **Person** | One human across systems, lifecycle stages, and employers. Prevents Lead, Contact, and product identities from becoming duplicate humans. | `person_id`; display name, normalized primary email, identity status, audit timestamps. | One Person has 0..* affiliations, Opportunity roles, Activities, product profiles, and cases. | Person survives employer/source changes. Lead, Contact, marketing, support, and product records map through the crosswalk. | P2–P7 |
-| **AccountPersonRelationship** | Effective-dated Person affiliation with an Account (employee, advisor, executive sponsor, and similar). | `account_person_relationship_id`; relationship type, title, department, primary flag, validity. | Each row belongs to exactly one Account and one Person; both may have 0..* rows. | Selective SCD2. Source association provenance is retained; primary intervals should not overlap for the same relationship class. | P2, P3, P4, P6 |
-| **AccountHierarchyRelationship** | Directed parent/subsidiary or other organizational relationship between distinct Accounts. | `account_hierarchy_relationship_id`; parent, child, relationship type, validity, source reference. | Each row has exactly one parent and one child; Accounts may participate in 0..* edges. Self-links and cycles are invalid. | Selective SCD2; former parents remain historical. Source assertion or stewardship action is recorded. | P2–P6 |
-| **AccountNameHistory** | Effective-dated legal name, trade name, or alias for an Account. | `account_name_history_id`; account, name, type, preferred flag, validity, source reference. | Account has 1..* names; each name row belongs to one Account. Exactly one preferred active name is expected. | Selective SCD2; never rename the Account identity. Source/steward provenance is required. | P1–P6 |
-| **AccountDomainHistory** | Effective-dated normalized domain associated with an Account. A domain is evidence, not identity. | `account_domain_history_id`; account, normalized domain, type, primary flag, validity, source reference. | Account has 0..* domains; each row belongs to one Account. | Selective SCD2. Reassignment requires non-overlapping evidence and preserved prior ownership. | P1–P4, P6 |
-| **SourceRecord** | Stable pointer to one object in one source tenant/system. Preserves records even before or without canonical resolution. | `source_record_id`; system, tenant, object type/ID, source and ingestion timestamps, payload reference, fingerprint, deletion flag. | One SourceRecord has 0..* historical crosswalk mappings and may provide provenance to operational entities. | The source natural key is stable; raw record versions belong to later ingestion storage. Lead and Contact are `source_object_type` values, not canonical entities. | P1, P7 |
-| **ExternalIdentityCrosswalk** | Auditable effective-dated link from one SourceRecord to one canonical entity at a time. | `external_identity_crosswalk_id`; source record, canonical type/ID, status, method, confidence, validity, supersession/review fields. | Each row has one SourceRecord and one supported canonical target. A SourceRecord may have multiple non-overlapping mappings over time. | Append/effective-date corrections; never rewrite mapping history. Detailed matching and survivorship are deferred to P1.2+. | P1–P7 |
+| Entity and PK | Plain-English meaning and example | Important relationships | Why it exists |
+|---|---|---|---|
+| **Account** (`account_id`) | One durable organization identity. Globex Health stays the same Account if it rebrands. Customer is an Account lifecycle status, not another company entity. | Has names, domains, hierarchy edges, people, Opportunities, and commercial records. | Gives all projects one company identity without merging parents and subsidiaries. |
+| **Person** (`person_id`) | One durable human identity. Sarah Kim remains the same Person across Salesforce, HubSpot, the product, and employer changes. | Has Account affiliations, Opportunity roles, Activities, product profiles, and cases. | Prevents Lead, Contact, and product profiles from becoming duplicate humans. |
+| **AccountPersonRelationship** (`account_person_relationship_id`) | An effective-dated link between a Person and Account. Sarah works at Globex Health, then later Northstar Labs. | Each row belongs to one Account and one Person; both can have many rows. | Preserves employment, title, department, and other affiliation history outside Person. |
+| **AccountHierarchyRelationship** (`account_hierarchy_relationship_id`) | An effective-dated parent/child link between two separate Accounts. Helio Systems can be the parent of Globex Health. | Each row has one parent Account and one child Account. Self-links and cycles are invalid. | Supports company rollups without collapsing subsidiaries into parents. |
+| **AccountNameHistory** (`account_name_history_id`) | An official name, trade name, or alias during a time period. Globex Health later uses the preferred name Helio Health. | One Account has one or more name rows; only one preferred name should be active. | Keeps rebrands and aliases without changing Account identity. |
+| **AccountDomainHistory** (`account_domain_history_id`) | A normalized internet domain associated with an Account during a time period. | One Account can have zero or many domains. | A domain can change or move, so it is useful identity evidence but not the Account ID. |
+| **SourceRecord** (`source_record_id`) | One object in one source system and tenant. Salesforce Account `SF-1001` and HubSpot Company `HS-502` are separate SourceRecords. | Can have historical crosswalk mappings and provide provenance to other entities. | Preserves the original system identity even before a canonical match exists. Lead and Contact are source object types here. |
+| **ExternalIdentityCrosswalk** (`external_identity_crosswalk_id`) | An auditable, effective-dated mapping from a SourceRecord to one supported canonical entity. | One SourceRecord can have multiple non-overlapping historical mappings but at most one active target at a time. | Connects vendor IDs to canonical IDs and allows correction without deleting prior evidence. |
 
-## 4. Revenue and commercial model
+### Example identity flow
 
-| Entity | Business definition and purpose | PK and important attributes | FKs / relationships and cardinality | History and source relationship | Future consumers |
-|---|---|---|---|---|---|
-| **Opportunity** | Source-independent potential commercial transaction with exactly one primary buying Account. | `opportunity_id`; primary account, name, stage, amount/currency, expected close, open/close timestamps. | Exactly one Account per Opportunity; Account has 0..* Opportunities. Opportunity has 0..* people, activities, quotes, and contracts. | Stable identity; stage/amount event history is deferred. CRM opportunities map through the crosswalk. | P2–P6 |
-| **OpportunityPersonRole** | A Person's role in a specific buying process, supporting buying committees. | `opportunity_person_role_id`; opportunity, person, role, influence, primary-contact flag, validity. | Exactly one Opportunity and Person per row; each can have 0..* role rows. | Effective-dated role changes. Source opportunity-contact roles and future inferences retain provenance. | P3–P6 |
-| **Quote** | Versioned priced proposal for an Opportunity and buying Account. | `quote_id`; opportunity, account, quote number, version, status, value/currency, expiry. | One Opportunity/Account may have 0..* Quotes; Quote may authorize 0..* Orders. | Each revision is a distinct version; accepted facts are not overwritten. CPQ/CRM quotes map through the crosswalk. | P4, P5 |
-| **Contract** | Legally binding agreement with an Account, independent of Account lifecycle and Subscription identity. | `contract_id`; account, optional opportunity, number, status, signed/start/end dates, value/currency. | One Account has 0..* Contracts; Opportunity may yield 0..*; Contract governs 0..* Orders and Subscriptions. | Amendments/renewals are linked identities; executed terms change only through audited correction. CLM/CRM/billing objects map through crosswalk. | P4–P6 |
-| **Order** | Accepted request to provision or fulfill products/services. | `order_id`; account, optional contract/quote, order number, status, ordered time, total/currency. | Exactly one Account; optional Contract/Quote; one Order may provision 0..* Subscriptions. | Status transitions must be auditable; accepted identity is stable. ERP/CPQ/billing orders map through crosswalk. | P5, P6 |
-| **Subscription** | Time-bounded recurring entitlement for an Account. | `subscription_id`; account, optional contract/order, product, status, term, quantity, billing frequency. | Exactly one Account; optional Contract and Order; one Subscription can have 0..* Invoices and Cases. | Terms/status will be effective-dated or amendment-based in physical design. Billing/entitlement records map through crosswalk. | P4–P6 |
-| **Invoice** | Billing demand issued to an Account for a recurring or commercial obligation. | `invoice_id`; account, optional subscription, number, status, issue/due dates, due/paid amounts, currency. | Exactly one Account; optional Subscription; each parent can have 0..* Invoices. | Append-oriented; credits, voids, and corrections remain auditable. ERP/billing invoices map through crosswalk. | P4–P6 |
+```text
+Salesforce Account SF-1001 ─┐
+                            ├─> Account: Globex Health
+HubSpot Company HS-502 ─────┘
+```
 
-No Contract, Order, Subscription, or Invoice is collapsed into Account. The still-unapproved rule that derives Account `lifecycle_status = customer` will be designed later from authoritative commercial evidence.
+The two source records remain separate. The Account is the shared identity.
 
-## 5. Engagement, product, service, and execution model
+## 6. Sales and Revenue
 
-| Entity | Business definition and purpose | PK and important attributes | FKs / relationships and cardinality | History and source relationship | Future consumers |
-|---|---|---|---|---|---|
-| **Campaign** | Canonical marketing or coordinated outreach initiative, distinct from the interactions it generates. | `campaign_id`; name, type, status, start/end, owner team. | Campaign groups 0..* Activities; an Activity references 0..1 Campaign. | Stable identity with future status history as needed. Source campaigns map through crosswalk. | P2–P4 |
-| **Activity** | Time-stamped business interaction such as email, meeting, call, form submission, or product-related touch. | `activity_id`; type, occurrence time, optional canonical contexts, source reference, resolution status. | Each Activity has 0..1 Person, Account, Opportunity, Campaign, and SourceRecord; each parent has 0..* Activities. | Append-oriented with audited corrections. Can remain unresolved using SourceRecord only. | P2–P4, P6, P7 |
-| **ProductUser** | Product-system profile linked, when resolvable, to one Person and Account context. It is not the canonical human. | `product_user_id`; optional person/account, source record, tenant key, status, first/last seen, resolution status. | Exactly one SourceRecord; 0..1 Person and Account. Each canonical entity may link to 0..* product profiles. | Profile changes stay in source history; link corrections are crosswalk-audited. | P4, P6 |
-| **SupportCase** | Customer support request/incident with relevant Account, Person, and Subscription context. | `support_case_id`; required account, optional person/subscription, number, status, priority, open/close timestamps. | Account has 0..* Cases; Person and Subscription each relate to 0..* optionally. | Stable identity; detailed transition events are deferred. Support objects map through crosswalk. | P4, P6, P7 |
-| **Signal** | Derived time-stamped observation (intent, engagement, risk, or data quality) about an allowed canonical subject. | `signal_id`; subject type/ID, type, observed time, value, confidence, derivation version, expiry. | Logical 1 subject per Signal; a subject has 0..* Signals. | Append-only and derivation-versioned; expiry never deletes evidence. Input lineage arrives with later pipelines. | P2–P4, P6, P7 |
-| **EnrichmentSnapshot** | Immutable point-in-time provider/internal enrichment response for Account or Person. | `enrichment_snapshot_id`; subject type/ID, provider, observation time, payload reference, schema version, quality status. | One Account/Person logical subject; subject has 0..* snapshots. | Immutable; each refresh creates a row. Provider request/response and licensing provenance must be retained. | P2–P4, P6 |
-| **Decision** | Auditable human or machine decision about a business subject. | `decision_id`; subject, outcome, reason codes, policy version, decision time/actor, optional workflow run. | One allowed logical subject; 0..1 producing WorkflowRun. A run may produce 0..* Decisions. | Append-only; a superseding decision references prior evidence rather than erasing it. | P2–P7 |
-| **WorkflowRun** | One attempt of an automated or human-assisted revenue workflow. | `workflow_run_id`; name/version, idempotency key, status, timestamps, trigger, optional retry parent, error code. | Self-reference 0..1 prior attempt; a run can have 0..* retries and Decisions. | Immutable attempt record; retry creates a new linked run. Generated by future automations/pipelines. | P2–P7 |
+| Entity and PK | Plain-English meaning and example | Important relationships | Why it exists |
+|---|---|---|---|
+| **Opportunity** (`opportunity_id`) | A potential commercial transaction, such as Globex Health's analytics expansion. | Has exactly one primary Account and zero or many people, Activities, Quotes, and Contracts. | Gives the sales process a source-independent identity and clear buyer. |
+| **OpportunityPersonRole** (`opportunity_person_role_id`) | A Person's role in one Opportunity. Sarah is the champion; John Lee is the economic buyer. | Each row links exactly one Opportunity and one Person and is effective-dated. | Represents buying committees and changing roles instead of adding fixed contact columns. |
+| **Quote** (`quote_id`) | A versioned priced proposal for an Opportunity and Account. Version 2 can replace an earlier proposal. | Belongs to one Opportunity and Account; can lead to Orders. | Keeps proposal revisions separate from the sales Opportunity and signed agreement. |
+| **Contract** (`contract_id`) | A legally binding agreement with an Account. | Belongs to an Account, may come from an Opportunity, and may govern Orders and Subscriptions. | Preserves signed terms independently of customer status and service entitlement. |
+| **Order** (`order_id`) | An accepted request to fulfill purchased products or services. | Belongs to an Account and may reference a Quote and Contract; can provision Subscriptions. | Separates accepted fulfillment instructions from the proposal and agreement. |
+| **Subscription** (`subscription_id`) | A time-bounded recurring product or service entitlement for an Account. | Belongs to an Account and may reference a Contract and Order; can have Invoices and SupportCases. | Tracks recurring service independently of the Contract and Account lifecycle label. |
+| **Invoice** (`invoice_id`) | A billing demand issued to an Account, optionally for a Subscription. | Belongs to one Account and may belong to one Subscription. | Gives billing obligations, credits, voids, and payment state their own auditable identity. |
 
-## 6. Source-system representation
+Customer status remains an Account attribute. Contract, Order, Subscription, and Invoice are not collapsed into Account because one company can have many of each.
 
-Example: Salesforce Lead `00Q-fictional-17` and later Contact `003-fictional-82` are two SourceRecords. Both can map to the same Person after resolution. Lead conversion is preserved as source lineage and mapping history; it does not transform one canonical Person into another. A HubSpot contact or product user for that human can add further SourceRecords and crosswalk rows.
+## 7. Marketing and Engagement
 
-Source uniqueness is scoped by `(source_system, source_tenant, source_object_type, source_object_id)`. Source deletion is represented as observed source state, not permission to erase canonical or audit history. Raw payload location and access controls remain ingestion responsibilities.
+| Entity and PK | Plain-English meaning and example | Important relationships | Why it exists |
+|---|---|---|---|
+| **Campaign** (`campaign_id`) | A coordinated marketing or outreach initiative, such as the synthetic “2026 Analytics Readiness” campaign. | Groups zero or many Activities. | Separates the initiative from individual interactions and supports future attribution. |
+| **Activity** (`activity_id`) | A time-stamped interaction such as an email, meeting, call, or form submission. | May reference a Person, Account, Opportunity, Campaign, and SourceRecord. | Creates one interaction envelope while preserving unresolved records and source provenance. |
 
-## 7. Cardinality and integrity rules
+A Campaign is not an Activity. The campaign is the initiative; Sarah Kim's webinar attendance is one Activity connected to it.
 
-- Opportunity → Account is mandatory many-to-one; all other context FKs explicitly marked optional may be null while unresolved or inapplicable.
-- Parent and child Account IDs in a hierarchy edge must differ. The active hierarchy must be acyclic. Whether multiple simultaneous parents are allowed depends on `relationship_type` and will be enforced through later tests.
-- Effective-dated records must satisfy `valid_from < valid_to` when `valid_to` exists. Current preferred/primary intervals must not conflict.
-- Crosswalk canonical target type must be allowed by the shared contract, and its ID must exist before the mapping becomes active.
-- `source_system + source_tenant + source_object_type + source_object_id` identifies one SourceRecord.
-- Monetary values always travel with `currency_code`; conversion policy is outside P1.1.
-- Timestamps are stored as UTC instants in the physical model; business dates remain dates.
+## 8. Product, Support, and Governance
 
-## 8. Auditability, security, and recovery considerations
+| Entity and PK | Plain-English meaning and example | Important relationships | Why it exists |
+|---|---|---|---|
+| **ProductUser** (`product_user_id`) | A profile inside a product tenant. Sarah's product login can resolve to her Person and Globex Health Account. | Has one SourceRecord and may reference one Person and Account. | Keeps product-system identity separate from the human's canonical Person. |
+| **SupportCase** (`support_case_id`) | A customer support request or incident. | Belongs to an Account and may reference a Person and Subscription. | Connects service experience to customer context without treating a case as an Activity or Signal. |
+| **Signal** (`signal_id`) | A derived observation such as engagement, intent, risk, or data-quality state. | Refers to one allowed canonical subject through `subject_entity_type` and `subject_entity_id`. | Stores explainable observations without overwriting the subject entity. |
+| **EnrichmentSnapshot** (`enrichment_snapshot_id`) | An immutable point-in-time response from an enrichment provider or internal process. | Refers to one Account or Person subject. | Preserves what a provider reported, when it reported it, and under which schema. |
+| **Decision** (`decision_id`) | An auditable human or machine decision, such as assigning an Account for manual review. | Refers to one allowed subject and may come from a WorkflowRun. | Records outcomes, reasons, policy versions, and actors separately from workflow code. |
+| **WorkflowRun** (`workflow_run_id`) | One execution attempt of an automated or human-assisted workflow. | Can produce Decisions and reference a prior run when retried. | Provides idempotency, execution history, failure context, and recovery lineage. |
 
-- **Provenance:** SourceRecord, source references, mapping method, policy/derivation version, and observation timestamps make facts explainable.
-- **Correction:** close/supersede erroneous time-bound rows; do not delete evidence. Manual actions require actor and review timestamps.
-- **Security:** Person and Activity can contain personal data. The physical design must classify columns, minimize replication, restrict raw payload access, apply retention/deletion policy, and audit privileged reads.
-- **Idempotency:** future ingestion keys on source identity and fingerprints; future workflows key on `idempotency_key` and create linked retry attempts.
-- **Failure recovery:** unresolved and failed records remain quarantinable by status without blocking valid records. Reprocessing must preserve original SourceRecord identity.
-- **Extensibility:** new source object types do not require new canonical person tables. New polymorphic target types require a versioned contract change and downstream impact review.
+Signals, enrichment, decisions, and workflow runs describe evidence and processing around business entities. They do not replace Account, Person, or Opportunity.
 
-## 9. Deferred decisions
+## 9. Source-System and History Rules
 
-P1.1 intentionally does not select UUID/ULID/sequence identifiers, matching thresholds, survivorship precedence, merge/unmerge procedures, authoritative customer-status rules, event-history granularity, warehouse types, or enforcement pattern for polymorphic references. The immediate next phase is **P1.2 — Canonical ID Generation & External-ID Crosswalk Strategy**.
+The SourceRecord uniqueness scope is:
+
+```text
+source_system + source_tenant + source_object_type + source_object_id
+```
+
+Example: a Salesforce Lead and its converted Contact are two SourceRecords. They may both map to Sarah Kim's Person. Lead conversion changes the source representation, not the human.
+
+Rules that a future physical model must enforce:
+
+- `valid_from` must be earlier than `valid_to` when `valid_to` exists.
+- Current preferred or primary history rows must not conflict.
+- An active crosswalk target type must be allowed by the shared contract.
+- A canonical target must exist before a mapping becomes active.
+- Parent and child Account IDs must differ, and the active hierarchy must be acyclic.
+- Every monetary value must include `currency_code`.
+- Physical timestamps will use Coordinated Universal Time (UTC); business dates remain dates.
+
+## 10. What Could Go Wrong?
+
+- A common company name or domain could cause an incorrect merge.
+- Two active crosswalk rows could map one SourceRecord to different canonical targets.
+- A correction could overwrite the old row and destroy audit history.
+- A parent/subsidiary hierarchy could contain a cycle.
+- Personal data in Person or Activity could be exposed too broadly.
+- A retry could create duplicate records if operations are not idempotent.
+
+The architecture requires provenance, effective dates, append-oriented correction, and unresolved states. Later phases must implement database constraints, access controls, reconciliation, and failure recovery.
+
+## 11. What Comes Next?
+
+P1.2 will decide canonical ID generation, crosswalk lifecycle, correction, merge/unmerge, idempotency, and recovery semantics. It will not build the full matching or survivorship engines.
+
+The following remain deliberately deferred: source ingestion, physical Snowflake design, dbt transformations, customer-status derivation, field survivorship, workflow deployment, and reverse Extract-Transform-Load (ETL).

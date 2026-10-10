@@ -1,14 +1,18 @@
 # P1 Project State
 
-**As of:** 2026-10-08
+**As of:** 2026-10-10
 
 **Current phase:** P1.1 complete; ready for P1.2 design
 
 **Completed phases:** P1.0 Engineering Foundation; P1.1 Canonical Business Model & ERD
 
+**Completed supporting milestone:** Repository cleanup and documentation improvement
+
 ## Current implementation status
 
 P1 has a versioned logical architecture contract, human-readable canonical entity dictionary, Mermaid ERD, approved-decision index with eight ADRs, repository/configuration conventions, continuity documentation, and a standard-library-only validation script.
+
+The GitHub repository is named `BsdSaiPrasad/sai-revenueos`. Documentation now includes a beginner walkthrough, central glossary, simplified repository navigation, a plain-English guide to all 23 entities, an ERD reading guide, and eight teaching-focused ADRs. The cleanup did not change the shared contract, ERD, or approved decisions.
 
 ### What is working
 
@@ -17,10 +21,11 @@ P1 has a versioned logical architecture contract, human-readable canonical entit
 - Lead and Contact represented as SourceRecord object types, with conversion/mapping history conceptually preserved.
 - Complete visual ERD with declared cardinalities and documented polymorphic logical references.
 - Offline validation of contract structure, PK/FK references, temporal fields, approved invariants, ERD coverage, ADR/continuity presence, and secret-like filenames.
+- Beginner-friendly learning path from repository overview to detailed architecture and verified project state.
 
 ### Verification status
 
-Verified on 2026-10-08: the architecture validator passed; Python compilation and JSON parsing passed; all relative Markdown links and required repository paths passed; and Mermaid CLI 11.12.0 rendered the ERD successfully to SVG and PNG for visual inspection. Exact commands and limitations are recorded in `WORK_LOG.md`. No deployed service, warehouse model, ingestion job, or source integration exists, so no runtime/data quality claim is made.
+P1.1 was verified on 2026-10-08. The documentation milestone is verified separately on 2026-10-10, including the existing architecture validator, contract counts, Mermaid compilation, relative links, approved-decision preservation, repository references, Git remote, and P1.2 boundary. Exact commands and observed results are recorded in `WORK_LOG.md`. No deployed service, warehouse model, ingestion job, or source integration exists, so no runtime/data quality claim is made.
 
 ## Unimplemented / intentionally deferred
 
@@ -49,7 +54,9 @@ None for closing P1.0/P1.1. P1.2 requires an explicit design choice for canonica
 - `projects/01-data-foundation/architecture/adr/`
 - `projects/01-data-foundation/scripts/validate_architecture.py`
 - `projects/01-data-foundation/WORK_LOG.md`
+- `docs/START_HERE.md`
+- `docs/GLOSSARY.md`
 
 ## Last verified commit
 
-Implementation commit `33e35c9` (`feat: establish P1 canonical data architecture`) was validated with the checks recorded in `WORK_LOG.md`. A later documentation-only commit records this hash and does not change the architecture.
+P1.1 implementation commit `33e35c9` remains the last engineering implementation. The verified repository-cleanup commit is recorded in `WORK_LOG.md` after commit creation; this supporting milestone does not implement P1.2 or change the architecture.

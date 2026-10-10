@@ -1,17 +1,42 @@
-# ADR-0007: Distinct Interaction Concepts
+# ADR-0007: Keep Activity, Campaign, and ProductUser Distinct
 
 - **Decision ID:** D007
 - **Status:** Accepted
 - **Scope:** P1 engagement model
 
-## Context
+## 1. The Problem
 
-An interaction event, the campaign that influenced it, and a user's product-system profile have different identities, lifecycles, and analytical meanings.
+A marketing initiative, an individual interaction, and a product login describe different things. Combining them produces unclear metrics and weak provenance.
 
-## Decision
+## 2. Real-World Example
 
-Model Activity, Campaign, and ProductUser separately. Link them to canonical Person, Account, or Opportunity context when known and preserve SourceRecord context plus resolution status when unknown.
+Synthetic **Globex Health** is included in the “2026 Analytics Readiness” Campaign. Sarah Kim attends its webinar, creating an Activity. Later she signs into the product through a ProductUser profile.
 
-## Consequences
+## 3. Options We Considered
 
-Attribution and usage analysis do not conflate unlike concepts, and early-arriving events are not lost. Consumers must handle optional canonical context explicitly.
+- Store every item as one generic engagement record. This is flexible but hides important differences.
+- Put campaign and product fields directly on Activity. This creates sparse, confusing records.
+- Model each concept separately and connect it to canonical context when known.
+
+## 4. Our Decision
+
+`Activity`, `Campaign`, and `ProductUser` are distinct entities. They link to Person, Account, Opportunity, and source context where relevant, while supporting unresolved identity.
+
+## 5. How It Works Technically
+
+- Campaign represents the initiative.
+- Activity represents a time-stamped interaction and can reference Campaign, Person, Account, Opportunity, and SourceRecord.
+- ProductUser represents a product-system profile and can reference Person, Account, and SourceRecord.
+- Optional canonical links remain null until identity is resolved; `resolution_status` records that condition.
+
+## 6. Why We Chose It
+
+The model supports clear campaign attribution, interaction history, and product usage without pretending they share one lifecycle or identity.
+
+## 7. Tradeoffs and Limitations
+
+Analysis requires explicit joins, and consumers must handle unresolved records. Later matching and ingestion work must update links without dropping early-arriving interactions.
+
+## 8. Interview Explanation
+
+“I separated campaigns, individual activities, and product profiles because they have different meanings and lifecycles. Each can still connect to the same canonical customer context.”
